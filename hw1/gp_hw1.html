@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <style>
+        #info {
+            position: absolute;
+            top: 0px;
+            width: 100%;
+            padding: 10px;
+            text-align: center;
+            color: #ffffff;
+        }
+
+        body {
+            overflow: hidden;
+        }
+    </style>
+</head>
+<div>
+    <h2 id="info">hw1</h2>
+    <span id="info">點擊螢幕播放音效</span>
+</div>
+<script src="https://threejs.org/build/three.min.js"></script>
+<script src="https://threejs.org/examples/js/controls/OrbitControls.js"></script>
+<script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
+<audio id="collision" style="display:none">
+    <source src="collision.mp3" type="audio/mp3">
+</audio>
+
+<body>
+    <script>
+        javascript: (function () { var script = document.createElement('script'); script.onload = function () { var stats = new Stats(); document.body.appendChild(stats.dom); requestAnimationFrame(function loop() { stats.update(); requestAnimationFrame(loop) }); }; script.src = 'https://mrdoob.github.io/stats.js/build/stats.min.js'; document.head.appendChild(script); })()
+        var camera, scene, renderer;
+        var balls = [];
+        var walls = [];
+        var CollisionSE = document.getElementById("collision");
+        var r = 20;
+        class Wall {
+            constructor(x, z) {
+                this.mesh = new THREE.Mesh(new THREE.BoxGeometry(510, 50, 10), new THREE.MeshPhongMaterial({ color: 0x737373, transparent: true, opacity: 0.5 }));
+                this.mesh.position.set(x, 25, z);
+                scene.add(this.mesh)
+            }
+        }
+        class Ball {
+            constructor(pos, vel, color) {
+                this.pos = pos;
+                this.vel = vel;
+                this.mesh = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 10, 255), new THREE.MeshPhongMaterial());
+                this.mesh.material.color = color;
+                this.light = new THREE.PointLight(this.mesh.material.color, 0.8, 0, 1.3);
+                scene.add(this.mesh);
+                scene.add(this.light);
+            }
+            update(dt) {
+                this.pos.add(this.vel.clone().multiplyScalar(dt));
+
+                for (let i = 0; i < balls.length; i++) {
+                    if (this.vel == balls[i].vel)
+                        continue;
+                    let col = this.pos.distanceTo(balls[i].pos);
+                    if (col <= 2 * r) {
+                        CollisionSE.play();
+                        let vel1 = this.vel.clone().sub(balls[i].vel);
+                        let pos1 = this.pos.clone().sub(balls[i].pos);
+                        let col1 = this.pos.clone().distanceToSquared(balls[i].pos);
+                        let veld1 = vel1.clone().dot(pos1);
+                        let velu1 = pos1.clone().multiplyScalar(veld1);
+                        let vela1 = velu1.divideScalar(col1);
+
+                        let vel2 = balls[i].vel.clone().sub(this.vel);
+                        let pos2 = balls[i].pos.clone().sub(this.pos);
+                        let col2 = balls[i].pos.clone().distanceToSquared(this.pos);
+                        let veld2 = vel2.clone().dot(pos2);
+                        let velu2 = pos2.clone().multiplyScalar(veld2);
+                        let vela2 = velu2.divideScalar(col2);
+
+                        this.vel = this.vel.clone().sub(vela1);
+                        balls[i].vel = balls[i].vel.clone().sub(vela2);
+                    }
+                }
+
+                if (this.pos.z < -250 + r) {
+                    CollisionSE.play();
+                    this.vel.z *= -1;
+                    this.pos.z = -250 + r;
+                }
+                if (this.pos.z > 250 - r) {
+                    CollisionSE.play();
+                    this.vel.z *= -1;
+                    this.pos.z = 250 - r;
+                }
+                if (this.pos.x > 250 - r) {
+                    CollisionSE.play();
+                    this.vel.x *= -1;
+                    this.pos.x = 250 - r;
+                }
+                if (this.pos.x < -250 + r) {
+                    CollisionSE.play();
+                    this.vel.x *= -1;
+                    this.pos.x = -250 + r;
+                }
+                this.mesh.position.copy(this.pos);
+                this.light.position.copy(this.pos);
+                this.light.position.y += 10;
+            }
+        }
+        init();
+        animate();
+        function init() {
+            scene = new THREE.Scene();
+            renderer = new THREE.WebGLRenderer();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setClearColor(0x888888);
+            document.body.appendChild(renderer.domElement);
+
+            camera = new THREE.PerspectiveCamera(90, window.innerWidth / window.innerHeight, 1, 850);
+            camera.position.set(0, 300, 450);
+            let controls = new THREE.OrbitControls(camera, renderer.domElement);
+
+            let floor = new THREE.Mesh(new THREE.PlaneGeometry(500, 500, 30), new THREE.MeshPhongMaterial({ color: 0xa8a8a8, side: THREE.DoubleSide }));
+            floor.rotation.x = Math.PI / 2;
+            scene.add(floor);
+            let pointlight = new THREE.PointLight(0xf0f0f0, 0.5, 0, 1);
+            pointlight.position.set(0, 30, 0);
+            scene.add(pointlight);
+            var ambientLight = new THREE.AmbientLight(0x3b3b3b);
+            scene.add(ambientLight);
+
+            walls[0] = new Wall(0, 250);
+            walls[1] = new Wall(0, -250);
+            walls[2] = new Wall(250, 0);
+            walls[2].mesh.rotation.y = Math.PI / 2;
+            walls[3] = new Wall(-250, 0);
+            walls[3].mesh.rotation.y = Math.PI / 2;
+
+            balls[0] = new Ball(new THREE.Vector3(100, 5, 100), new THREE.Vector3(5, 0, 10), new THREE.Color().setHSL(0, 0.72, 0.44));
+            balls[1] = new Ball(new THREE.Vector3(-100, 5, -100), new THREE.Vector3(10, 0, 5), new THREE.Color().setHSL(0.2, 0.72, 0.44));
+            balls[2] = new Ball(new THREE.Vector3(0, 5, -200), new THREE.Vector3(3, 0, -4), new THREE.Color().setHSL(0.4, 0.72, 0.44));
+            balls[3] = new Ball(new THREE.Vector3(150, 5, -30), new THREE.Vector3(8, 0, -8), new THREE.Color().setHSL(0.6, 0.72, 0.44));
+            balls[4] = new Ball(new THREE.Vector3(-200, 5, 200), new THREE.Vector3(-5, 0, 8), new THREE.Color().setHSL(0.8, 0.72, 0.44));
+
+            window.addEventListener('resize', onWindowResize, false);
+        }
+        function onWindowResize() {
+            var width = window.innerWidth;
+            var height = window.innerHeight;
+            camera.aspect = width / height;
+            camera.updateProjectionMatrix();
+            renderer.setSize(width, height);
+        }
+        function animate() {
+            var dt = 0.1;
+            for (let i = 0; i < balls.length; i++)
+                balls[i].update(dt);
+            requestAnimationFrame(animate);
+            render();
+        }
+        function render() {
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+
+</html>
